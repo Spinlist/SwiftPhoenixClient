@@ -12,18 +12,18 @@ Supported objects:
 
 import Foundation
 
-public class Serializable : NSObject{
+open class Serializable : NSObject{
   
   func toDictionary() -> NSDictionary {
-    let aClass : AnyClass? = self.dynamicType
+    let aClass : AnyClass? = type(of: self)
     var propertiesCount : CUnsignedInt = 0
     let propertiesInAClass : UnsafeMutablePointer<objc_property_t> = class_copyPropertyList(aClass, &propertiesCount)
     let propertiesDictionary : NSMutableDictionary = NSMutableDictionary()
     
-    for var i = 0; i < Int(propertiesCount); i++ {
+    for i in 0 ..< Int(propertiesCount) {
       let property = propertiesInAClass[i]
-      let propName = NSString(CString: property_getName(property), encoding: NSUTF8StringEncoding)
-      let propValue : AnyObject! = self.valueForKey(propName! as String);
+      let propName = NSString(cString: property_getName(property), encoding: String.Encoding.utf8.rawValue)
+      let propValue : AnyObject! = self.value(forKey: propName! as String) as AnyObject!;
       
       if propValue is Serializable {
         propertiesDictionary.setValue((propValue as! Serializable).toDictionary(), forKey: (propName as! String))
@@ -34,14 +34,14 @@ public class Serializable : NSObject{
         }
         propertiesDictionary.setValue(subArray, forKey: propName! as String)
       } else if propValue is NSData {
-        propertiesDictionary.setValue((propValue as! NSData).base64EncodedStringWithOptions([]), forKey: propName! as String)
+        propertiesDictionary.setValue((propValue as! Data).base64EncodedString(options: []), forKey: propName! as String)
       } else if propValue is Bool {
-        propertiesDictionary.setValue((propValue as! Bool).boolValue, forKey: propName! as String)
+        propertiesDictionary.setValue((propValue as! Bool), forKey: propName! as String)
       } else if propValue is NSDate {
-        let date = propValue as! NSDate
-        let dateFormatter = NSDateFormatter()
+        let date = propValue as! Date
+        let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "Z"
-        let dateString = NSString(format: "/Date(%.0f000%@)/", date.timeIntervalSince1970, dateFormatter.stringFromDate(date))
+        let dateString = NSString(format: "/Date(%.0f000%@)/", date.timeIntervalSince1970, dateFormatter.string(from: date))
         propertiesDictionary.setValue(dateString, forKey: propName! as String)
       } else {
         propertiesDictionary.setValue(propValue, forKey: propName! as String)
@@ -51,17 +51,17 @@ public class Serializable : NSObject{
     return propertiesDictionary
   }
   
-  func toJson() -> NSData! {
+  func toJson() -> Data! {
     let dictionary = self.toDictionary()
     do {
-      return try NSJSONSerialization.dataWithJSONObject(dictionary, options:NSJSONWritingOptions(rawValue: 0))
+      return try JSONSerialization.data(withJSONObject: dictionary, options:JSONSerialization.WritingOptions(rawValue: 0))
     } catch _ {
       return nil
     }
   }
   
-  public func toJsonString() -> NSString! {
-    return NSString(data: self.toJson(), encoding: NSUTF8StringEncoding)
+  open func toJsonString() -> NSString! {
+    return NSString(data: self.toJson(), encoding: String.Encoding.utf8.rawValue)
   }
   
   override init() { }
